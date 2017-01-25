@@ -1,0 +1,26 @@
+@import "variables";
+@import "bootstrap/bootstrap";
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn-outline-secondary:hover {
+  color: $brand-primary;
+}
+
+.poll-legend {
+  display: inline-block;
+  margin-right: 10px;
+  text-align: center;
+}
+
+.poll-legend .badge {
+  content: " ";
+  display: inline-block;
+  height: 15px;
+  width: 15px;
+  border-radius: 100%;
+  background: black;
+  margin-right: 10px;
+}
