@@ -1,7 +1,7 @@
 {
-  "name": "fcc-template",
+  "name": "fcc-voting",
   "version": "1.0.0",
-  "description": "A template for some FCC challenges.",
+  "description": "The FCC voting challenge.",
   "main": "index.js",
   "repository": {
     "url": "https://github.com/Capevace/fcc-webapp-template",
