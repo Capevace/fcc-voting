@@ -14,6 +14,13 @@ function App({ children, loading }) {
           : children
         }
       </Container>
+      <Container className="mt-3">
+        Made by Lukas von Mateffy (
+          <a href="https://twitter.com/Capevace">@Capevace</a>&nbsp;|&nbsp;
+          <a href="http://smoolabs.com">smoolabs.com</a>&nbsp;|&nbsp;
+          <a href="https://github.com/Capevace">GitHub</a>
+        )
+      </Container>
       {/* <Footer /> */}
     </div>
   );
