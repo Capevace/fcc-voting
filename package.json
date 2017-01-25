@@ -31,7 +31,7 @@
     "build": "webpack",
     "build-prod": "webpack -p",
     "dev": "node dev-server",
-    "start": "npm run build-prod && node index.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "axios": "^0.15.3",
