@@ -1,4 +1,5 @@
 const { Types } = require('mongoose');
+const requestIp = require('request-ip');
 const { Poll } = require('../schemas');
 
 module.exports = (app) => {
@@ -104,7 +105,7 @@ module.exports = (app) => {
       return;
     }
 
-    const ip = req.ip;
+    const ip = requestIp.getClientIp(req);
 
     Poll.findOne({ _id: req.params.id })
       .then(poll => {
@@ -161,5 +162,7 @@ module.exports = (app) => {
       });
   });
 
-  app.get('/api/ip', (req, res) => res.json({ ip: req.ip }));
+  app.get('/api/ip', (req, res) => {
+    res.json({ ip: requestIp.getClientIp(req) });
+  });
 };
