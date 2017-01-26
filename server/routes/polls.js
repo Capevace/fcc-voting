@@ -16,14 +16,7 @@ module.exports = (app) => {
           polls: results
         });
       })
-      .catch(error => {
-        console.error(error);
-        res.status(500).json({
-          status: 500,
-          message: 'Internal server error.',
-          polls: []
-        });
-      });
+      .catch(err => throwInternalError(err, res));
   });
 
   app.post('/api/poll', (req, res) => {
@@ -59,17 +52,18 @@ module.exports = (app) => {
   app.get('/api/poll/:id', (req, res) => {
     Poll.findOne({ _id: req.params.id })
       .then(result => {
-        res.json({
-          poll: result
-        });
+        if (result) {
+          res.json({
+            poll: result
+          });
+        } else {
+          res.status(404).json({
+            status: 404,
+            message: `Poll with id ${req.params.id} wasn't found.`
+          });
+        }
       })
-      .catch(error => {
-        console.error(error);
-        res.status(500).json({
-          status: 500,
-          message: 'Internal server error.'
-        });
-      });
+      .catch(err => throwInternalError(err, res));
   });
 
   app.delete('/api/poll/:id', (req, res) => {
@@ -87,17 +81,53 @@ module.exports = (app) => {
           status: 200
         });
       })
-      .catch(err => {
-        console.error(err);
-        res.status(500).json({
-          status: 500,
-          message: 'Internal server error.'
-        });
-      });
+      .catch(err => throwInternalError(err, res));
   });
 
   app.post('/api/poll/:id/vote', (req, res) => {
-    if (!req.body.optionId) {
+    Poll.findOne({ _id: req.params.id })
+      .then(poll => voteFor(poll, req.body.optionId, req, res))
+      .catch(err => throwInternalError(err, res));
+  });
+
+  app.post('/api/poll/:id/add-option', (req, res) => {
+    const pollId = req.params.id;
+    const optionBody = req.body.optionBody;
+    let optionId = '';
+
+    if (!optionBody) {
+      res.status(400).json({
+        status: 400,
+        message: 'Please provide an option body.'
+      });
+      return;
+    }
+
+    Poll.findOne({ _id: req.params.id })
+      .then(poll => {
+        if (!poll) {
+          res.status(404).json({
+            status: 404,
+            message: 'Poll not found'
+          });
+          return;
+        }
+
+        poll.options.push({ body: optionBody });
+        optionId = poll.options[poll.options.length - 1]._id;
+
+        return poll.save();
+      })
+      .then(poll => voteFor(poll, optionId, req, res))
+      .catch(err => throwInternalError(err, res));
+  });
+
+  app.get('/api/ip', (req, res) => {
+    res.json({ ip: requestIp.getClientIp(req) });
+  });
+
+  function voteFor(poll, optionId, req, res) {
+    if (!optionId) {
       res.status(400).json({
         status: 400,
         message: 'Please provide an optionId'
@@ -107,62 +137,55 @@ module.exports = (app) => {
 
     const ip = requestIp.getClientIp(req);
 
-    Poll.findOne({ _id: req.params.id })
-      .then(poll => {
-        // Check if votes
-        const canceled = poll.votes
-          .reduce((canceled, vote) => {
-            if (canceled) return canceled;
+    // Check if votes
+    const canceled = poll.votes
+      .reduce((canceled, vote) => {
+        if (canceled) return canceled;
 
-            if (req.isAuthenticated() && vote.user === req.user._id) {
-              return true;
-            }
-
-            // If ip is saved, we cant vote again
-            if ((vote.ip && vote.ip === ip)) {
-              return true;
-            }
-
-            return false;
-          }, false);
-
-        if (canceled) {
-          res.status(403).json({
-            status: 403,
-            message: 'Vote already placed.'
-          });
-          return;
+        if (req.isAuthenticated() && vote.user === req.user._id) {
+          return true;
         }
 
-        let vote = {
-          ip,
-          option: req.body.optionId
-        };
-
-        // check wether we should add by user or ip
-        if (req.isAuthenticated()) {
-          vote.user = req.user._id;
+        // If ip is saved, we cant vote again
+        if ((vote.ip && vote.ip === ip)) {
+          return true;
         }
 
-        poll.votes.push(vote);
+        return false;
+      }, false);
 
-        poll.save();
-
-        res.json({
-          status: 200,
-          poll: poll
-        });
-      })
-      .catch(error => {
-        console.error(error);
-        res.status(500).json({
-          status: 500,
-          message: 'Internal server error.'
-        });
+    if (canceled) {
+      res.status(403).json({
+        status: 403,
+        message: 'Vote already placed.'
       });
-  });
+      return;
+    }
 
-  app.get('/api/ip', (req, res) => {
-    res.json({ ip: requestIp.getClientIp(req) });
-  });
+    let vote = {
+      ip,
+      option: optionId
+    };
+
+    // check wether we should add by user or ip
+    if (req.isAuthenticated()) {
+      vote.user = req.user._id;
+    }
+
+    poll.votes.push(vote);
+    poll.save();
+
+    res.json({
+      status: 200,
+      poll: poll
+    });
+  }
+
+  function throwInternalError(err, res) {
+    console.error(error);
+    res.status(500).json({
+      status: 500,
+      message: 'Internal server error.'
+    });
+  }
 };

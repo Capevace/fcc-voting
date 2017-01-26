@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Row, Col } from './Grid';
 import AlertBox from './AlertBox';
 import PollBox from './PollBox';
+import Loader from './Loader';
 
 class PollContainer extends React.Component {
   constructor(props) {
@@ -87,16 +88,11 @@ class PollContainer extends React.Component {
 
   render() {
     console.log(this.state);
-    return (
-      <div>
-        {this.state.loading
-          ? 'Loading'
-          : this.state.error
-            ? this.renderError()
-            : this.renderPolls()
-        }
-      </div>
-    );
+    return this.state.loading
+      ? <Loader />
+      : this.state.error
+        ? this.renderError()
+        : this.renderPolls();
   }
 }
 

@@ -5,60 +5,37 @@ import { ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import axios from 'axios';
 
 import { pollVotesToData, colors } from '../utils/poll-votes-to-data';
-import { Row, Col } from './Grid';
+import { Row, Col, Container } from './Grid';
 import AlertBox from './AlertBox';
+import Loader from './Loader';
 
-class PollDisplay extends React.Component {
+class PollContainer extends React.Component {
   constructor(props) {
     super(props);
 
     this.state = {
       loading: true,
-      poll: null,
       error: false,
+      poll: null,
       selectedOption: null,
-      voteByUser: null
+      voteByUser: null,
+      customOptionInput: ''
     };
 
+    // Request cancel helpers
     this.cancelPollRequest = null;
+    this.cancelVoteRequest = null;
+
+    // Bind methods
+    this.selectOption = this.selectOption.bind(this);
     this.vote = this.vote.bind(this);
     this.delete = this.delete.bind(this);
+    this.addOption = this.addOption.bind(this);
+    this.updateCustomOptionInput = this.updateCustomOptionInput.bind(this);
   }
 
-  componentDidMount() {
-    axios
-      .get(`/api/poll/${this.props.id}`, {
-        cancelToken: new axios.CancelToken((cancelFunction) => {
-          this.cancelPollRequest = () => {
-            this.cancelPollRequest = null;
-            cancelFunction();
-          };
-        })
-      })
-      .then(result => {
-        this.setPoll(result.data.poll);
-      })
-      .catch(error => {
-        if (!axios.isCancel(error)) {
-          console.error(error);
-          this.setState({
-            loading: false,
-            poll: null,
-            error: true
-          });
-        }
-      });
-  }
-
-  componentWillUnmount() {
-    if (this.cancelPollRequest)
-      this.cancelPollRequest();
-
-    if (this.cancelVoteRequest)
-      this.cancelVoteRequest();
-  }
-
-  setPoll(poll) {
+  // Updates the state and detects, if user has already voted and so on
+  updatePoll(poll) {
     let voteByUser = null;
     let selectedOption = null;
 
@@ -93,8 +70,8 @@ class PollDisplay extends React.Component {
 
     this.setState({
       loading: false,
-      poll: poll,
       error: !poll,
+      poll: poll,
       voteByUser,
       selectedOption
     });
@@ -127,16 +104,14 @@ class PollDisplay extends React.Component {
           };
         })
       })
-      .then(result => {
-        this.setPoll(result.data.poll);
-      })
+      .then(result => this.updatePoll(result.data.poll))
       .catch(error => {
         if (!axios.isCancel(error)) {
           console.error(error);
           this.setState({
             loading: false,
-            poll: null,
-            error: true
+            error: true,
+            poll: null
           });
         }
       });
@@ -154,10 +129,82 @@ class PollDisplay extends React.Component {
         console.error(error);
         this.setState({
           loading: false,
-          polls: null,
-          error: true
+          error: true,
+          polls: null
         });
       });
+  }
+
+  addOption(event) {
+    event.preventDefault();
+
+    if (this.state.voteByUser) {
+      alert('You\'ve already voted on this poll.');
+      return false;
+    }
+
+    this.setState({ loading: true });
+
+    axios
+      .post(`/api/poll/${this.state.poll._id}/add-option`, {
+        optionBody: this.state.customOptionInput,
+        cancelToken: new axios.CancelToken((cancelFunction) => {
+          this.cancelVoteRequest = () => {
+            this.cancelVoteRequest = null;
+            cancelFunction();
+          };
+        })
+      })
+      .then(result => this.updatePoll(result.data.poll))
+      .catch(error => {
+        if (!axios.isCancel(error)) {
+          console.error(error);
+          this.setState({
+            loading: false,
+            error: true,
+            poll: null
+          });
+        }
+      });
+  }
+
+  updateCustomOptionInput(event) {
+    this.setState({
+      customOptionInput: event.target.value
+    });
+  }
+
+  componentDidMount() {
+    axios
+      .get(`/api/poll/${this.props.id}`, {
+        cancelToken: new axios.CancelToken((cancelFunction) => {
+          this.cancelPollRequest = () => {
+            this.cancelPollRequest = null;
+            cancelFunction();
+          };
+        })
+      })
+      .then(result => this.updatePoll(result.data.poll))
+      .catch(error => {
+        if (!axios.isCancel(error)) {
+          console.error(error);
+          this.setState({
+            loading: false,
+            error: true,
+            poll: null,
+            voteByUser: null,
+            selectedOption: null
+          });
+        }
+      });
+  }
+
+  componentWillUnmount() {
+    if (this.cancelPollRequest)
+      this.cancelPollRequest();
+
+    if (this.cancelVoteRequest)
+      this.cancelVoteRequest();
   }
 
   renderError() {
@@ -172,80 +219,124 @@ class PollDisplay extends React.Component {
     );
   }
 
-  renderPoll() {
-    return (
-      <div>
-        <Row className="mb-4">
-          <Col xs={12}>
-            <h2>Poll: {this.state.poll.question}</h2>
-          </Col>
-        </Row>
-        <Row>
-          <Col xs={6}>
-            <p>Please Vote:</p>
-            <div className="list-group">
-              {this.state.poll.options.map((option, index) => {
-                return (
-                  <button
-                    key={index}
-                    onClick={(e) => this.selectOption(e, option)}
-                    href="#"
-                    disabled={!!this.state.voteByUser}
-                    className={`
-                      list-group-item
-                      ${this.state.selectedOption && this.state.selectedOption._id === option._id
-                          ? 'active'
-                          : ''
-                      }
-                      ${this.state.voteByUser
-                          ? 'disabled'
-                          : ''
-                      }
-                    `}>
-                    {option.body}
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              onClick={this.vote}
-              disabled={!!this.state.voteByUser}
-              className={`btn btn-primary btn-lg mt-4`}>
-              {this.state.voteByUser
-                ? 'You\'ve voted already'
-                : 'Vote'
-              }
-            </button>
-          </Col>
-          <Col xs={6}>
-            <div>
-              <VoteGraph poll={this.state.poll} />
-            </div>
-
-            {this.props.user && this.state.poll && this.state.poll.author === this.props.user._id &&
-              <div className="d-flex justify-content-end mt-3">
-                <button
-                  onClick={this.delete}
-                  className="btn btn-outline-danger align-self-end">
-                  Delete Poll
-                </button>
-              </div>
-            }
-          </Col>
-        </Row>
-      </div>
-    );
-  }
-
   render() {
-    console.log(this.state);
     return this.state.loading
-      ? <div>Loading</div>
+      ? <Loader loading />
       : (this.state.error || !this.state.poll)
         ? this.renderError()
-        : this.renderPoll();
+        : <PollDisplay
+            poll={this.state.poll}
+            selectedOption={this.state.selectedOption}
+            voteByUser={this.state.voteByUser}
+            onSelect={this.selectOption}
+            onVote={this.vote}
+            onDelete={this.delete}
+            onAdd={this.addOption}
+            isAuthor={this.props.user
+              && this.state.poll
+              && this.state.poll.author === this.props.user._id
+            }
+            isLoggedIn={!!this.props.user}
+            onCustomOptionChange={this.updateCustomOptionInput}
+            customOptionInput={this.state.customOptionInput}
+          />;
   }
 }
+
+function PollDisplay({
+  poll,
+  selectedOption,
+  voteByUser,
+  onVote,
+  onSelect,
+  onDelete,
+  onAdd,
+  isAuthor,
+  isLoggedIn,
+  onCustomOptionChange,
+  customOptionInput
+}) {
+  const selectedOptionId = selectedOption
+    ? selectedOption._id
+    : '';
+
+  return (
+    <Container>
+      <Row className="mb-4">
+        <Col xs={12}>
+          <h2>Poll: {poll.question}</h2>
+        </Col>
+      </Row>
+      <Row>
+        <Col xs={6}>
+          <p>Please Vote:</p>
+
+          <div className="list-group">
+            {poll.options.map((option, index) =>
+              <button
+                key={index}
+                onClick={e => onSelect(e, option)}
+                disabled={!!voteByUser}
+                className={`
+                  list-group-item
+                  ${selectedOptionId === option._id
+                    ? 'active'
+                    : ''
+                  }
+                `}>
+                {option.body}
+              </button>
+            )}
+
+            {isLoggedIn && !voteByUser &&
+              <div className="list-group-item">
+                <form style={{ width: '100%'}} onSubmit={onAdd}>
+                  <div className="input-group">
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Enter your answer"
+                      onChange={onCustomOptionChange}
+                      value={customOptionInput} />
+
+                    <span className="input-group-btn">
+                      <button className="btn btn-outline-primary" type="submit">Add Option</button>
+                    </span>
+                  </div>
+                </form>
+              </div>}
+          </div>
+
+          <button
+            onClick={onVote}
+            disabled={!!voteByUser}
+            className={`btn btn-primary btn-lg mt-4`} >
+            {voteByUser
+              ? 'You\'ve voted already'
+              : 'Vote'}
+          </button>
+        </Col>
+
+        <Col xs={6}>
+          <div>
+            <VoteGraph poll={poll} />
+          </div>
+
+          {isAuthor &&
+            <div className="d-flex justify-content-end mt-3">
+              <button
+                onClick={onDelete}
+                className="btn btn-outline-danger align-self-end">
+                Delete Poll
+              </button>
+            </div>
+          }
+        </Col>
+      </Row>
+    </Container>
+  );
+}
+
 
 function VoteGraph({ poll }) {
   const data = pollVotesToData(poll);
@@ -290,4 +381,4 @@ const mapStateToProps = (state) => {
   };
 };
 
-export default connect(mapStateToProps)(PollDisplay);
+export default connect(mapStateToProps)(PollContainer);

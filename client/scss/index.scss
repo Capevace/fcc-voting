@@ -24,3 +24,11 @@ body {
   background: black;
   margin-right: 10px;
 }
+
+button.list-group-item {
+  outline: none;
+
+  &:active, &:focus {
+    outline: none;
+  }
+}

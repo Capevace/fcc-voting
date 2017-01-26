@@ -4,6 +4,7 @@ import { browserHistory } from 'react-router';
 
 import AlertBox from '../components/AlertBox';
 import { Container, Row, Col } from '../components/Grid';
+import Loader from '../components/Loader';
 
 class NewPollPage extends React.Component {
   constructor(props) {
@@ -123,7 +124,7 @@ class NewPollPage extends React.Component {
     return (
       <Container>
         {this.state.creating
-          ? 'Creating...'
+          ? <Loader label="Creating" />
           : (this.state.error)
             ? this.renderError()
             : this.renderForm()

@@ -14,7 +14,7 @@ export function pollVotesToData(poll) {
     return data;
   }, {});
 
-  console.log(orderedOptions);
+  // console.log(orderedOptions);
 
   const orderedVotes = poll.votes.reduce((data, vote) => {
     data[vote.option] = {
